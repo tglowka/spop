@@ -1,4 +1,4 @@
-module MainModule where
+module Main where
 
 import PositionsModule
 import ReadFileModule
@@ -84,29 +84,36 @@ markAndCheckNeighbours maxX maxY ((x, y), z) newMarkedPoints processedPoints mar
 --     smaller = [y | y <- xs, (fst y <= fst x) && (snd y == snd x) || (snd y < snd x)]
 --     larger = [y | y <- xs, (fst y > fst x) && (snd y == snd x) || (snd y > snd x)]
 
-printFilledBoard :: Int -> Int -> [(Int, Int)] -> [String]
-printFilledBoard maxX maxY (x : xs) =
-  printBoard 0 0 (x : xs) [] []
+getFilledBoard :: Int -> Int -> [(Int, Int)] -> [String]
+getFilledBoard maxX maxY (x : xs) =
+  getBoard 0 0 (x : xs) [] []
   where
-    printBoard :: Int -> Int -> [(Int, Int)] -> String -> [String] -> [String]
-    printBoard counterX counterY [] agg result = result
-    printBoard counterX counterY points agg result
+    getBoard :: Int -> Int -> [(Int, Int)] -> String -> [String] -> [String]
+    getBoard counterX counterY [] agg result = result
+    getBoard counterX counterY points agg result
       | counterY > maxY = result
-      | (counterX, counterY) `elem` points && counterX == maxX = printBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['x']])
-      | (counterX, counterY) `elem` points && counterX < maxX = printBoard (counterX + 1) counterY points (agg ++ ['x']) result
-      | (counterX, counterY) `notElem` points && counterX == maxX = printBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['.']])
-      | (counterX, counterY) `notElem` points && counterX < maxX = printBoard (counterX + 1) counterY points (agg ++ ['.']) result
+      | (counterX, counterY) `elem` points && counterX == maxX = getBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['x']])
+      | (counterX, counterY) `elem` points && counterX < maxX = getBoard (counterX + 1) counterY points (agg ++ ['x']) result
+      | (counterX, counterY) `notElem` points && counterX == maxX = getBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['.']])
+      | (counterX, counterY) `notElem` points && counterX < maxX = getBoard (counterX + 1) counterY points (agg ++ ['.']) result
+
+printFilledBoard :: [String] -> IO ()
+printFilledBoard [] = return ()
+printFilledBoard (x : xs) =
+  do
+    putStrLn x
+    printFilledBoard xs
 
 main :: IO ()
 main = do
   putStr "Enter file name: "
-  let fileName = "10x10.txt"
+  fileName <- getLine
   puzzle <- readPuzzle fileName
   let maxX = (length $ head puzzle) -1
   let maxY = (length puzzle) -1
   let boardPositions = getBoardPositions puzzle
   let final = processBoardPosition maxX maxY boardPositions [] []
-  let tmp = printFilledBoard 3 3 [(0, 0)]
-  print tmp
+  let filledBoard = getFilledBoard maxX maxY final
   print final
+  printFilledBoard filledBoard
   putStrLn (show $ length $ puzzle)
