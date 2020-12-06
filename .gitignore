@@ -1,6 +1,4 @@
-*
-
-!*.hs
-!*.txt
-!*.md
-!.gitignore
+**/*.hi
+**/*.o
+**/*.exe
+.vscode
