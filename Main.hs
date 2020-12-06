@@ -1,25 +1,26 @@
 module Main where
 
+import HelperModule
 import PositionsModule
 import ReadFileModule
 
 {-
-  Argumenty:
-    - maksymalny indeks X planszy
-    - maksymalny indeks Y planszy
-    - lista punktów do przerobienia(krotek), krotka taka że = ((x,y),z):
-      - x - indeks x punktu
-      - y - indeks y punktu
-      - z - wartość punktu
-    - lista przerobionych punktów
-    - lista obecnie zamalowanych punktów
-  Return: lista końcowa zamalowanych punktów
--}
+  Description: The 'processBoardPosition' function solves the puzzle and returns the solution.
+  Arguments:
+  - Int - the maximal x index (breadth of the puzzle board)
+  - Int - the maximal y index (length of the puzzle board)
+  - [((Int, Int), Int)] - the list of points (digits) to process in order to solve the puzzle. Single element: ((x-coordinate, y-coordinate), digit)
+  - [((Int, Int), Int)] - the list of points that have been already processed
+  - [(Int, Int)] - the list of points that have been already marked
+  Returns:
+  - [(Int, Int)] - if solution exists -> list of the marked points on the board
+                   otherwise -> [(-1, -1)]
 
+-}
 processBoardPosition :: Int -> Int -> [((Int, Int), Int)] -> [((Int, Int), Int)] -> [(Int, Int)] -> [(Int, Int)]
-processBoardPosition maxX maxY [] processedPoints markedPoints = markedPoints
+processBoardPosition _ _ [] _ markedPoints = markedPoints
 processBoardPosition maxX maxY (point : restPoints) processedPoints markedPoints =
-  isOK maxX maxY point us processedPoints markedPoints
+  isOK maxX maxY point combinations processedPoints markedPoints
   where
     pointCoordiantes = fst point
     poitnValue = snd point
@@ -28,34 +29,37 @@ processBoardPosition maxX maxY (point : restPoints) processedPoints markedPoints
     possibleNeighbours = getPossibleNeighboursPositions maxX maxY pointCoordiantes
     missingNeighboursCount = poitnValue - currentNeighboursCount
     unusedNeighbours = [x | x <- possibleNeighbours, x `notElem` currentNeighbours]
-    us = getAllCombinations missingNeighboursCount unusedNeighbours
+    combinations = getAllCombinations missingNeighboursCount unusedNeighbours
     isOK :: Int -> Int -> ((Int, Int), Int) -> [[(Int, Int)]] -> [((Int, Int), Int)] -> [(Int, Int)] -> [(Int, Int)]
-    isOK maxX maxY point [] processedPoints markedPoints = [(-1, -1)]
+    isOK _ _ _ [] _ _ = [(-1, -1)]
     isOK maxX maxY point (cmb : cmbs) processedPoints markedPoints
-      | result == [(-1, -1)] = isOK maxX maxY point cmbs processedPoints markedPoints
-      | otherwise = evalNext processNext
+      | result == [(-1, -1)] = isOK maxX maxY point cmbs processedPoints markedPoints -- the given combination (cmb) does not fit -> checks other combinations
+      | otherwise = evalNext processNext -- the given combination (cmb) is fine (i.e. does not corrupt processed points) -> process next point (next digit from puzzle)
       where
         result = markAndCheckNeighbours maxX maxY point cmb processedPoints markedPoints
         processNext = processBoardPosition maxX maxY restPoints ([point] ++ processedPoints) result
         evalNext resultNext
-          | resultNext == [(-1, -1)] = isOK maxX maxY point cmbs processedPoints markedPoints
+          | resultNext == [(-1, -1)] = isOK maxX maxY point cmbs processedPoints markedPoints -- if next processed point returns [(-1,-1)] then try to look for solution  with next combination
           | otherwise = resultNext
 
 {-
-  Argumenty:
-  - maksymalny indeks X planszy
-  - maksymalny indeks Y planszy
-  - współrzędne punktu wraz z wartością
-  - lista punktów do zamalowania
-  - lista dotychczas przerobionych punktów wraz z wartościami
-  - lista dotychczas zamalowanych pól
-  Return:
-    Jeśli zamalowane punkty nie zepsuły dotychczas przerobionych pól - Lista dotychczas zamalowanych pól + nowo zamalowane punkty
-    Jeśli zamalowane punkty zepsuły jedno z dotychczas przerobionych punktów - [(-1,-1)]
+  Description: The 'markAndCheckNeighbours' function marks new points of currently processed point and perform required checks.
+               By marking new fields of given point, some of the previously processed points might now have more neighbours than expected.
+               Previously processed points are checked here.
+  Arguments:
+  - Int - the maximal x index (breadth of the puzzle board)
+  - Int - the maximal y index (length of the puzzle board)
+  - ((Int, Int), Int) - currently processed point -> ((x-coordinate, y-coordinate), digit)
+  - [(Int, Int)] - the list of points we want to mark for currently processed point
+  - [((Int, Int), Int)] - the list of points that have been already processed
+  - [(Int, Int)] - the list of points that have been already marked
+  Returns: - if newly marked points does not corrupted currently processed points -> (the list of points that have been already marked) + (newly marked points)
+           - otherwise (at least one of the previously processed points would have more neighbours that expected) -> [(-1,-1)]
+
 -}
 markAndCheckNeighbours :: Int -> Int -> ((Int, Int), Int) -> [(Int, Int)] -> [((Int, Int), Int)] -> [(Int, Int)] -> [(Int, Int)]
-markAndCheckNeighbours maxX maxY ((x, y), z) [] processedPoints markedPoints = markedPoints
-markAndCheckNeighbours maxX maxY ((x, y), z) newMarkedPoints [] [] = newMarkedPoints
+markAndCheckNeighbours _ _ _ [] _ markedPoints = markedPoints
+markAndCheckNeighbours _ _ _ newMarkedPoints [] [] = newMarkedPoints
 markAndCheckNeighbours maxX maxY ((x, y), z) newMarkedPoints processedPoints markedPoints
   | result = newMarkedPoints ++ markedPoints
   | otherwise = [(-1, -1)]
@@ -69,7 +73,7 @@ markAndCheckNeighbours maxX maxY ((x, y), z) newMarkedPoints processedPoints mar
     validatePointWithNewMarked :: [((Int, Int), Int)] -> [(Int, Int)] -> Bool
     validatePointWithNewMarked [] _ = True
     validatePointWithNewMarked (point : points) markedPoints
-      | pointValue < currentNeighboursCount = False
+      | pointValue < currentNeighboursCount = False -- one of the previously processed points has more neighbours that expected
       | otherwise = validatePointWithNewMarked points markedPoints
       where
         pointCoordiantes = fst point
@@ -77,43 +81,14 @@ markAndCheckNeighbours maxX maxY ((x, y), z) newMarkedPoints processedPoints mar
         currentNeighboursCount = length $ getCurrentNeighboursPositions maxX maxY pointCoordiantes markedPoints
     result = validatePointWithNewMarked pointsToCheck (newMarkedPoints ++ markedPoints)
 
--- quicksort :: [(Int, Int)] -> [(Int, Int)]
--- quicksort [] = []
--- quicksort (x : xs) = quicksort smaller ++ x : quicksort larger
---   where
---     smaller = [y | y <- xs, (fst y <= fst x) && (snd y == snd x) || (snd y < snd x)]
---     larger = [y | y <- xs, (fst y > fst x) && (snd y == snd x) || (snd y > snd x)]
-
-getFilledBoard :: Int -> Int -> [(Int, Int)] -> [String]
-getFilledBoard maxX maxY (x : xs) =
-  getBoard 0 0 (x : xs) [] []
-  where
-    getBoard :: Int -> Int -> [(Int, Int)] -> String -> [String] -> [String]
-    getBoard counterX counterY [] agg result = result
-    getBoard counterX counterY points agg result
-      | counterY > maxY = result
-      | (counterX, counterY) `elem` points && counterX == maxX = getBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['x']])
-      | (counterX, counterY) `elem` points && counterX < maxX = getBoard (counterX + 1) counterY points (agg ++ ['x']) result
-      | (counterX, counterY) `notElem` points && counterX == maxX = getBoard 0 (counterY + 1) points [] (result ++ [agg ++ ['.']])
-      | (counterX, counterY) `notElem` points && counterX < maxX = getBoard (counterX + 1) counterY points (agg ++ ['.']) result
-
-printFilledBoard :: [String] -> IO ()
-printFilledBoard [] = return ()
-printFilledBoard (x : xs) =
-  do
-    putStrLn x
-    printFilledBoard xs
-
 main :: IO ()
 main = do
-  putStr "Enter file name: "
-  fileName <- getLine
-  puzzle <- readPuzzle fileName
-  let maxX = (length $ head puzzle) -1
-  let maxY = (length puzzle) -1
+  putStrLn "Enter file name: "
+  filename <- getLine
+  puzzle <- readPuzzle filename
+  let maxX = length (head puzzle) -1
+  let maxY = length puzzle -1
   let boardPositions = getBoardPositions puzzle
   let final = processBoardPosition maxX maxY boardPositions [] []
   let filledBoard = getFilledBoard maxX maxY final
-  print final
   printFilledBoard filledBoard
-  putStrLn (show $ length $ puzzle)
